@@ -1,27 +1,72 @@
 #include "fasttrigonometry.h"
+#include <stdio.h>
 
 typedef unsigned short  uint16_t;
 typedef signed short    int16_t;
 
 #define MathPI4	0.785398163F
 
+#define AZERO 0.000001F
+
 #define ABS(x) (x >= 0 ? x: (-x))
 #define SIGN(x) (x>= 0 ? 1 : (-1))
 
 /// Размер массива значений синусов
-#define TrigoQuarterSize 41
+#define TableSize 181
 
 /// Значения синуса в диапазоне [0; pi / 2]
 /// приведенная к максимальной ёмкости uint16_t: 2^16
-static const uint16_t TrigoQuarter[TrigoQuarterSize] = {
-   0, 2573, 5142, 7703, 10252, 12785, 15299, 17789, 20251,
-   22683, 25079, 27437, 29752, 32022, 34242, 36409, 38521,
-   40572, 42562, 44485, 46340, 48124, 49833, 51466, 53019,
-   54490, 55878, 57179, 58392, 59515, 60546, 61484, 62327,
-   63075, 63724, 64276, 64728, 65081, 65333, 65484, 65535 };
+static const uint16_t QuarterSinTable[TableSize] = {
+0, 572, 1144, 1716, 2287, 2859, 3430, 4001, 4571, 5142,
+5712, 6281, 6850, 7419, 7987, 8554, 9121, 9687, 10252,
+10816, 11380, 11943, 12505, 13066, 13625, 14184, 14742,
+15299, 15854, 16409, 16962, 17513, 18064, 18613, 19161,
+19707, 20251, 20795, 21336, 21876, 22414, 22951, 23486,
+24019, 24550, 25079, 25607, 26132, 26655, 27177, 27696,
+28214, 28729, 29242, 29752, 30261, 30767, 31271, 31772,
+32271, 32767, 33262, 33753, 34242, 34728, 35212, 35693,
+36171, 36647, 37119, 37589, 38056, 38521, 38982, 39440,
+39895, 40347, 40796, 41243, 41685, 42125, 42562, 42995,
+43425, 43851, 44275, 44695, 45111, 45524, 45934, 46340,
+46743, 47142, 47537, 47929, 48317, 48702, 49083, 49460,
+49833, 50203, 50568, 50930, 51288, 51642, 51992, 52339,
+52681, 53019, 53353, 53683, 54009, 54331, 54649, 54962,
+55272, 55577, 55878, 56174, 56467, 56755, 57039, 57318,
+57593, 57864, 58130, 58392, 58650, 58902, 59151, 59395,
+59634, 59869, 60100, 60325, 60546, 60763, 60975, 61182,
+61385, 61583, 61776, 61965, 62148, 62327, 62502, 62671,
+62836, 62996, 63152, 63302, 63448, 63588, 63724, 63855,
+63982, 64103, 64219, 64331, 64438, 64539, 64636, 64728,
+64815, 64897, 64974, 65047, 65114, 65176, 65233, 65286,
+65333, 65375, 65413, 65445, 65473, 65495, 65513, 65525, 65533, 65535 };
 
 /// Дискрет значений угла между значениями синуса массива
-#define DeltaDegreeRad (MathPI / (2 * (TrigoQuarterSize - 1)))
+#define DeltaDegreeRad (MathPI / (2 * (TableSize - 1)))
+
+#define TableSizeAtan 181
+/// Значения atan в диапазоне [0; 1]
+/// приведенная к максимальной ёмкости uint16_t: 2^16
+static const uint16_t HalfAtanTable[TableSizeAtan] = {
+0, 364, 728, 1092, 1456, 1820, 2184, 2547, 2911, 3274, 3637, 4000, 4363,
+4725, 5087, 5449, 5810, 6171, 6532, 6892, 7252, 7611, 7970, 8329, 8687,
+9044, 9401, 9758, 10113, 10469, 10823, 11177, 11530, 11883, 12235, 12586,
+12937, 13286, 13635, 13983, 14331, 14677, 15023, 15368, 15712, 16055, 16397,
+16738, 17079, 17418, 17757, 18094, 18431, 18766, 19101, 19434, 19767, 20098,
+20429, 20758, 21086, 21413, 21739, 22064, 22388, 22711, 23032, 23353, 23672,
+23990, 24307, 24622, 24937, 25250, 25562, 25873, 26183, 26491, 26798, 27104,
+27409, 27712, 28014, 28315, 28615, 28913, 29210, 29506, 29800, 30094, 30386,
+30676, 30966, 31254, 31540, 31826, 32110, 32393, 32674, 32954, 33233, 33511,
+33787, 34062, 34336, 34608, 34879, 35149, 35417, 35684, 35950, 36214, 36477,
+36739, 37000, 37259, 37517, 37773, 38029, 38283, 38535, 38787, 39037, 39286,
+39533, 39780, 40025, 40268, 40511, 40752, 40992, 41230, 41468, 41704, 41939,
+42172, 42405, 42636, 42866, 43095, 43322, 43548, 43773, 43997, 44220, 44441,
+44661, 44880, 45098, 45315, 45530, 45745, 45958, 46170, 46381, 46590, 46799,
+47006, 47212, 47417, 47621, 47824, 48026, 48226, 48426, 48624, 48822, 49018,
+49213, 49407, 49600, 49792, 49983, 50172, 50361, 50549, 50736, 50921, 51106, 51289, 51472};
+
+
+/// Дискрет значений угла между значениями синуса массива
+#define DeltaAtanValue (1.0F / (TableSizeAtan - 1))
 
 float fastFmod (float a, float b) {
     return (a - b * (int)(a / b));
@@ -40,25 +85,26 @@ float normalizeAngle(float angle) {
 
 /// Линейная аппроксимация sin угла
 /// по таблице в диапазоне [0; pi / 2]
-float linearApprox(float angle_rad) {
+float linearApprox(float x_value, uint16_t* y_table,
+                   uint16_t table_size, float delta_value) {
 
     int16_t low_index = 0;
-    float temp_angle_rad = 0.0F;
+    float temp_x_value = 0.0F;
 
-    for(int16_t index = 0; index < TrigoQuarterSize; index++) {
-        temp_angle_rad = index * DeltaDegreeRad;
-        if(temp_angle_rad >= angle_rad) {
+    for(int16_t index = 0; index < table_size; index++) {
+        temp_x_value = index * delta_value;
+        if(temp_x_value >= x_value || ABS(x_value) < AZERO) {
             break;
         }
         low_index++;
     }
 
     float value;
-    if(low_index == TrigoQuarterSize - 1) {
-        value = TrigoQuarter[low_index];
+    if(low_index == table_size - 1) {
+        value = y_table[low_index];
     } else {
-        value = TrigoQuarter[low_index] + (TrigoQuarter[low_index + 1] - TrigoQuarter[low_index])
-            * (temp_angle_rad - angle_rad) / DeltaDegreeRad;
+        value = y_table[low_index] + (y_table[low_index + 1] - y_table[low_index])
+            * (temp_x_value - x_value) / delta_value;
     }
 
     return value / (1 << 16);
@@ -70,14 +116,18 @@ float linearApprox(float angle_rad) {
 float fastSin(float angle_rad) {
     /// Нормализируем угол в диапазон [-pi, pi]
     angle_rad = normalizeAngle(angle_rad);
+    float sign = SIGN(angle_rad);
+
 
     /// Берем угол с другой стороны если он больше pi / 2
-    if(ABS(angle_rad) > MathPI - ABS(angle_rad)) {
-        angle_rad = MathPI - ABS(angle_rad);
+    if(ABS(angle_rad) >= MathPI / 2) {
+       angle_rad = MathPI - ABS(angle_rad);
     }
 
     /// Возвращаем линейную аппроксимацию от угла в диапазоне [0; pi / 2]
-    return SIGN(angle_rad) * linearApprox(ABS(angle_rad));
+    return sign * linearApprox(ABS(angle_rad), QuarterSinTable,
+                                    TableSize, DeltaDegreeRad);
+
 }
 
 /// Функция быстрого косинуса
@@ -93,8 +143,11 @@ float fastCos(float angle_rad) {
 /// Входное значение в любом диапазоне
 /// На выходе [-pi; pi]
 float fastAtan(float x) {
-    return (MathPI4 * x - x * (ABS(x) - 1) *
-            (0.2447F + 0.0663F * ABS(x)));
+//    printf("argument: %f\n", x);
+    return SIGN(x) * linearApprox(ABS(x), HalfAtanTable,
+                               TableSizeAtan, DeltaAtanValue);
+//    return (MathPI4 * x - x * (ABS(x) - 1) *
+//            (0.2447F + 0.0663F * ABS(x)));
 }
 
 /// Функция быстрого обратного тангенса 2
